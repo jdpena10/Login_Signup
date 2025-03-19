@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">Login Signup</string>
+    <string-array name="roles_array">
+        <item>Cuidador</item>
+        <item>Dueño</item>
+        <item>Veterinario</item>
+    </string-array>
+</resources>
