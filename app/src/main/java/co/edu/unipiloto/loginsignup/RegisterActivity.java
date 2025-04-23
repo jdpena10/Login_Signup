@@ -175,25 +175,36 @@ public class RegisterActivity extends AppCompatActivity {
     }
 
     private void obtenerUbicacionYRegistrar(String nombre, String usuario, String email, String password, String genero, String rol) {
-        FusedLocationProviderClient fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
+        LocationRequest locationRequest = LocationRequest.create()
+                .setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY)
+                .setInterval(5000)
+                .setFastestInterval(2000)
+                .setNumUpdates(1);
 
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
-                ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+        LocationCallback locationCallback = new LocationCallback() {
+            @Override
+            public void onLocationResult(LocationResult locationResult) {
+                if (locationResult == null) {
+                    Toast.makeText(RegisterActivity.this, "No se pudo obtener la ubicación en tiempo real", Toast.LENGTH_SHORT).show();
+                    return;
+                }
 
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, 1);
-            return;
-        }
-
-        fusedLocationClient.getLastLocation().addOnSuccessListener(this, location -> {
-            if (location != null) {
-                double latitud = location.getLatitude();
-                double longitud = location.getLongitude();
-                obtenerDireccionYRegistrar(nombre, usuario, email, password, genero, rol, latitud, longitud);
-            } else {
-                Toast.makeText(this, "No se pudo obtener la ubicación", Toast.LENGTH_SHORT).show();
+                Location location = locationResult.getLastLocation();
+                if (location != null) {
+                    double latitud = location.getLatitude();
+                    double longitud = location.getLongitude();
+                    obtenerDireccionYRegistrar(nombre, usuario, email, password, genero, rol, latitud, longitud);
+                }
             }
-        });
+        };
+
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+            fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper());
+        } else {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, 1);
+        }
     }
+
 
     private void obtenerDireccionYRegistrar(String nombre, String usuario, String email, String password, String genero, String rol, double latitud, double longitud) {
         Geocoder geocoder = new Geocoder(this, Locale.getDefault());
@@ -226,48 +237,40 @@ public class RegisterActivity extends AppCompatActivity {
 
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
                 ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, 1);
             return;
         }
 
-        fusedLocationClient.getLastLocation().addOnSuccessListener(this, location -> {
-            if (location != null) {
-                double latitud = location.getLatitude();
-                double longitud = location.getLongitude();
-                Toast.makeText(this, "Ubicación obtenida: " + latitud + ", " + longitud, Toast.LENGTH_LONG).show();
-            } else {
-                Toast.makeText(this, "Ubicación no disponible. Intentando obtener ubicación en tiempo real...", Toast.LENGTH_SHORT).show();
-                solicitarUbicacionEnTiempoReal();
-            }
-        });
+        // Aquí directamente pedimos la ubicación en tiempo real (más confiable)
+        solicitarUbicacionEnTiempoReal();
     }
 
-    private void solicitarUbicacionEnTiempoReal() {
-        LocationRequest locationRequest = LocationRequest.create()
-                .setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY)
-                .setInterval(5000)
-                .setFastestInterval(2000)
-                .setNumUpdates(1);
 
-        LocationCallback locationCallback = new LocationCallback() {
+    private void solicitarUbicacionEnTiempoReal() {
+        LocationRequest locationRequest = LocationRequest.create();
+        locationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
+        locationRequest.setInterval(1000); // cada segundo
+        locationRequest.setFastestInterval(500);
+
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            return;
+        }
+
+        fusedLocationClient.requestLocationUpdates(locationRequest, new LocationCallback() {
             @Override
             public void onLocationResult(LocationResult locationResult) {
-                if (locationResult == null) {
-                    Toast.makeText(RegisterActivity.this, "No se pudo obtener la ubicación en tiempo real", Toast.LENGTH_SHORT).show();
-                    return;
-                }
+                if (locationResult == null) return;
+
                 Location location = locationResult.getLastLocation();
                 if (location != null) {
                     double latitud = location.getLatitude();
                     double longitud = location.getLongitude();
-                    Toast.makeText(RegisterActivity.this, "Ubicación en tiempo real: " + latitud + ", " + longitud, Toast.LENGTH_LONG).show();
+                    Toast.makeText(getApplicationContext(), "Ubicación obtenida: " + latitud + ", " + longitud, Toast.LENGTH_LONG).show();
+
+                    // Detener actualizaciones si solo necesitas una ubicación
+                    fusedLocationClient.removeLocationUpdates(this);
                 }
             }
-        };
-
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-            fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper());
-        }
+        }, Looper.getMainLooper());
     }
 }
